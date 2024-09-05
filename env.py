@@ -1,18 +1,8 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
-#
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto. Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
-#
 import math
-
 import carb
 import gymnasium
 import numpy as np
 from gymnasium import spaces
-
 
 class JetBotEnv(gymnasium.Env):
     metadata = {"render.modes": ["human"]}
@@ -22,18 +12,46 @@ class JetBotEnv(gymnasium.Env):
         skip_frame=1,
         physics_dt=1.0 / 60.0,
         rendering_dt=1.0 / 60.0,
+        # HUR MÅNGA STEG MAX EN EPISODE FÅR VARA (256 default)
         max_episode_length=256,
         seed=0,
         headless=True,
     ) -> None:
         from omni.isaac.kit import SimulationApp
 
-        self.headless = headless
-        self._simulation_app = SimulationApp({"headless": self.headless, "anti_aliasing": 0})
+        # Livestream configuration for SimulationApp
+        CONFIG = {
+            "width": 1280,
+            "height": 720,
+            "window_width": 1920,
+            "window_height": 1080,
+            "headless": headless,  # Use the headless parameter passed to the constructor
+            "hide_ui": False,  # Show the GUI, useful for livestreaming
+            "renderer": "RayTracedLighting",
+            "display_options": 3286,  # Set display options to show the default grid
+        }
+
+        # Initialize the SimulationApp with the livestream settings
+        self._simulation_app = SimulationApp(launch_config=CONFIG)
+
+        # Now import the enable_extension function after initializing SimulationApp
+        from omni.isaac.core.utils.extensions import enable_extension
+
+        # Enable Livestream extensions
+        self._simulation_app.set_setting("/app/window/drawMouse", True)
+        self._simulation_app.set_setting("/app/livestream/proto", "ws")
+        self._simulation_app.set_setting("/ngx/enabled", False)
+
+        enable_extension("omni.kit.streamsdk.plugins-3.2.1")
+        enable_extension("omni.kit.livestream.core-3.2.0")
+        enable_extension("omni.kit.livestream.native")
+
+        # Rest of the environment setup
         self._skip_frame = skip_frame
         self._dt = physics_dt * self._skip_frame
         self._max_episode_length = max_episode_length
         self._steps_after_reset = int(rendering_dt / physics_dt)
+
         from omni.isaac.core import World
         from omni.isaac.core.objects import VisualCuboid
         from omni.isaac.core.utils.nucleus import get_assets_root_path
@@ -90,7 +108,7 @@ class JetBotEnv(gymnasium.Env):
 
         # we want to force the jetbot to always drive forward
         # so we transform to [0,1].  we also scale by our max velocity
-        forward = (raw_forward + 1.0) / 2.0
+        forward = raw_forward
         forward_velocity = forward * self.max_velocity
 
         # we scale the angular, but leave it on [-1,1] so the
@@ -108,6 +126,7 @@ class JetBotEnv(gymnasium.Env):
         info = {}
         done = False
         truncated = False
+        # HÄR BESTÄMMER DEN HUR LÅNG EN "EPISODE" SKA VARA - DVS ETT "FÖRSÖK" ATT FÅNGA KUBEN - HAR DÅ EN "_max_episode_length" 
         if self._my_world.current_time_step_index - self._steps_after_reset >= self._max_episode_length:
             done = True
             truncated = True

@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--test", default=False, action="store_true", help="Run in test mode")
 args, unknown = parser.parse_known_args()
 
-log_dir = "./cnn_policy"
+log_dir = "/workspace/cnn_policy"
 # set headles to false to visualize training
 my_env = JetBotEnv(headless=True)
 
@@ -51,12 +51,12 @@ except Exception as e:
 
 policy_kwargs = dict(activation_fn=th.nn.ReLU, net_arch=[dict(vf=[128, 128, 128], pi=[128, 128, 128])])
 policy = MlpPolicy
-total_timesteps = 500000
+total_timesteps = 400000
 
 if args.test is True:
-    total_timesteps = 10000
+    total_timesteps = 100000
 
-checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=log_dir, name_prefix="jetbot_policy_checkpoint")
+checkpoint_callback = CheckpointCallback(save_freq=20000, save_path=log_dir, name_prefix="jetbot_policy_checkpoint")
 model = PPO(
     policy,
     my_env,
@@ -65,10 +65,10 @@ model = PPO(
     n_steps=2560,
     batch_size=64,
     learning_rate=0.000125,
-    gamma=0.9,
-    ent_coef=7.5e-08,#The entropy coefficient, denoted as ent_coef in your code, is a hyperparameter that controls the amount of exploration versus exploitation during training. It influences the balance between exploration (trying out different actions to gather more information about the environment) and exploitation (taking actions that are known to yield high rewards based on the current policy).
+    gamma=1,
+    ent_coef=7.5e-08,
     clip_range=0.3,
-    n_epochs=5,
+    n_epochs=2,
     gae_lambda=1.0,
     max_grad_norm=0.9,
     vf_coef=0.95,
